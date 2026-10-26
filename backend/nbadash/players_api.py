@@ -148,6 +148,33 @@ def season_line(r: sqlite3.Row) -> SeasonLine:
     )
 
 
+_TOTALS = ("min", "fgm", "fga", "fg3m", "fg3a", "ftm", "fta", "oreb", "dreb", "reb", "ast", "stl", "blk", "tov", "pf", "pts")
+
+
+def with_fresh_totals(c: sqlite3.Connection, pid: int, rows: list[sqlite3.Row]) -> list[dict]:
+    """Season totals come from the NBA's career call, which is only fetched when a player is loaded; the game logs are refreshed after every game.
+    Where the logs hold more games than the stored season row, the row (and the career row of the same type) is brought up to date from the logs,
+    so a player's averages are not stuck on the games he had when his profile was loaded. A traded player's per-team rows are left as they are."""
+    out = [dict(r) for r in rows]
+    agg = {(r["season"], r["season_type"]): r for r in c.execute(
+        "SELECT season, season_type, COUNT(*) AS gp, " + ", ".join(f"SUM({k}) AS {k}" for k in _TOTALS) +
+        " FROM player_game_logs WHERE player_id=? GROUP BY season, season_type", (pid,))}
+    for r in out:
+        a = agg.get((r["season"], r["season_type"]))
+        if a is None or r["season"] == "Career" or (r["team_abbr"] not in ("TOT", "") and sum(1 for x in out if x["season"] == r["season"] and x["season_type"] == r["season_type"]) > 1):
+            continue
+        extra = a["gp"] - (r["gp"] or 0)
+        if extra <= 0:
+            continue
+        delta = {k: (a[k] or 0) - (r[k] or 0) for k in _TOTALS}
+        for target in (r, next((x for x in out if x["season"] == "Career" and x["season_type"] == r["season_type"]), None)):
+            if target is not None:
+                target["gp"] = (target["gp"] or 0) + extra
+                for k in _TOTALS:
+                    target[k] = (target[k] or 0) + delta[k]
+    return out
+
+
 def _age(birthdate: Optional[str]) -> Optional[int]:
     if not birthdate:
         return None
@@ -194,7 +221,7 @@ def make_router(db_path: Optional[str | Path] = None) -> APIRouter:
         loaded = bool(c.execute("SELECT 1 FROM sync WHERE player_id=? AND kind='info'", (pid,)).fetchone())
         seasons = c.execute(
             "SELECT * FROM player_seasons WHERE player_id=? ORDER BY season, team_abbr='TOT' DESC, team_abbr", (pid,)).fetchall()
-        lines = [season_line(r) for r in seasons]
+        lines = [season_line(r) for r in with_fresh_totals(c, pid, seasons)]
         avail = c.execute(
             """SELECT l.season, l.season_type, COUNT(*) AS games,
                       (SELECT COUNT(*) FROM player_shots s WHERE s.player_id=l.player_id AND s.season=l.season

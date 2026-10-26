@@ -160,3 +160,20 @@ async def test_search_ignores_accents(tmp_path, fixtures_dir):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
         for q in ("jokic", "JOKIĆ", "kola jok"):
             assert [p["id"] for p in (await client.get("/api/players", params={"q": q})).json()] == [1]
+
+
+@pytest.mark.asyncio
+async def test_the_profile_catches_season_totals_up_with_the_game_logs(conn):
+    """The season row is written when a player is loaded; the logs are refreshed after every game. The profile must not lag behind the logs."""
+    with conn:
+        conn.execute("INSERT INTO player_seasons (player_id, season, season_type, team_abbr, gp, gs, min, pts, reb, ast) VALUES (?, '2026-27', 'regular', 'LAL', 1, 1, 30, 20, 5, 5)", (PID,))
+        conn.execute("INSERT INTO player_seasons (player_id, season, season_type, team_abbr, gp, gs, min, pts, reb, ast) VALUES (?, 'Career', 'regular', '', 100, 100, 3000, 2000, 500, 500)", (PID,))
+        for i, (pts, reb, ast) in enumerate([(20, 5, 5), (30, 7, 9), (25, 6, 4)]):
+            conn.execute("INSERT INTO player_game_logs (player_id, game_id, season, season_type, game_date, min, pts, reb, ast, fgm, fga, fg3m, fg3a, ftm, fta, oreb, dreb, stl, blk, tov, pf) "
+                         "VALUES (?, ?, '2026-27', 'regular', ?, 30, ?, ?, ?, 0,0,0,0,0,0,0,0,0,0,0,0)", (PID, f"G{i}", f"2026-10-2{i}", pts, reb, ast))
+    app = create_app(ReplaySource(__import__("pathlib").Path(".")), db_path=conn.execute("PRAGMA database_list").fetchone()[2])
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
+        prof = (await client.get(f"/api/players/{PID}")).json()
+    cur = next(x for x in prof["regular"] if x["season"] == "2026-27")
+    assert cur["gp"] == 3 and cur["ppg"] == 25.0 and cur["pts"] == 75  # three games, not the one the row was loaded with
+    assert prof["career_regular"]["gp"] == 102 and prof["career_regular"]["pts"] == 2055  # the career row moves by the same two games

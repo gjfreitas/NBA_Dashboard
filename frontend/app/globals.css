@@ -1,0 +1,245 @@
+@import "tailwindcss";
+
+/*
+ * Design language: an arena broadcast package.
+ *   Dark  = "arena night": warm near-black walnut, cream type, one ball-orange accent, a hardwood-gold secondary.
+ *   Light = clean: white and cool grey, ink type, a deeper orange. No tint, texture or glow.
+ * Type: Big Shoulders (arena signage, condensed) for headings and scores, Instrument Sans for reading, JetBrains Mono for small labels.
+ * Components use semantic tokens only; texture and court lines live here, not in markup.
+ */
+:root {
+  --bg: #0b0907;
+  --surface: #17120e;
+  --surface-2: #231b14;
+  --border: #3b2e22;
+  --text: #f5ecde;
+  --muted: #b3a48f;        /* 7:1 on --bg */
+  --accent: #ff6a1f;
+  --on-accent: #1a0c03;
+  --gold: #e3a857;
+  --live: #ff5547;
+  --win: #4bdc8f;
+  --focus: #ffd27a;
+  --win-strong: #15803d;   /* chart bars: white text on these is >= 5:1 */
+  --live-strong: #b91c1c;
+  --line-color: #facc15;
+  --plank: rgb(255 214 150 / 0.035);
+  --glow: rgb(255 106 31 / 0.16);
+  --card-hi: rgb(255 240 215 / 0.05);
+  --card-shadow: rgb(0 0 0 / 0.75);
+  --grain-opacity: 0.07;
+  color-scheme: dark;
+}
+/* Light follows the system unless the visitor picked a theme with the header button (data-theme on <html>). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eceef2; --border: #d6dae1;
+    --text: #14161a; --muted: #4b5260; --accent: #b3380a; --on-accent: #ffffff; --gold: #8f4f0b;
+    --live: #b91c1c; --win: #0f7a4d; --focus: #1d4ed8; --line-color: #b45309;
+    --plank: transparent; --glow: transparent;
+    --card-hi: transparent; --card-shadow: rgb(20 24 32 / 0.16); --grain-opacity: 0;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eceef2; --border: #d6dae1;
+  --text: #14161a; --muted: #4b5260; --accent: #b3380a; --on-accent: #ffffff; --gold: #8f4f0b;
+  --live: #b91c1c; --win: #0f7a4d; --focus: #1d4ed8; --line-color: #b45309;
+  --plank: transparent; --glow: transparent;
+  --card-hi: transparent; --card-shadow: rgb(20 24 32 / 0.16); --grain-opacity: 0;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface2: var(--surface-2);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-gold: var(--gold);
+  --color-on-accent: var(--on-accent);
+  --color-live: var(--live);
+  --color-win: var(--win);
+  --font-sans: var(--f-body);
+  --font-display: var(--f-display);
+  --font-mono: var(--f-label);
+  --radius-lg: 0.5rem;
+}
+
+/* ------------------------------------------------------------------ base */
+@layer base {
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(900px 420px at 88% -8%, var(--glow), transparent 70%),
+      radial-gradient(700px 360px at 4% 105%, var(--glow), transparent 70%),
+      repeating-linear-gradient(90deg, transparent 0 151px, var(--plank) 151px 152px);
+    color: var(--text);
+    font-family: var(--f-body), system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  /* paper-like grain, so large dark areas are not flat (opacity 0 in the light theme) */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .85  0 0 0 0 .6  0 0 0 .8 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  h1, h2, h3 { font-family: var(--f-display), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.035em; font-weight: 700; line-height: 1.05; }
+  /* column headings read like the small print on a scoresheet */
+  th[scope="col"] { font-family: var(--f-label), ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.09em; font-size: 0.66rem; }
+  caption { letter-spacing: 0.01em; }
+  ::selection { background: var(--accent); color: var(--on-accent); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+}
+
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+
+/* ------------------------------------------------------------- components */
+@layer components {
+  /* every card: a faint top highlight and a floor shadow (both nearly invisible in the light theme) */
+  .rounded-lg.border.bg-surface:not(.overflow-x-auto) {
+    background-image: linear-gradient(180deg, var(--card-hi), transparent 46%);
+    box-shadow: inset 0 1px 0 var(--card-hi), 0 14px 26px -20px var(--card-shadow);
+  }
+
+  /* big page titles */
+  .page-title { font-size: clamp(2rem, 5.2vw, 3.1rem); font-weight: 800; letter-spacing: 0.01em; line-height: 0.95; }
+
+  /* small labels: kicker above a heading, section tabs */
+  .kicker { font-family: var(--f-label), ui-monospace, monospace; font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); }
+  .display { font-family: var(--f-display), system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.03em; }
+  .score { font-family: var(--f-display), system-ui, sans-serif; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 0.9; letter-spacing: 0.01em; }
+  .label { font-family: var(--f-label), ui-monospace, monospace; font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* half-court line drawing, drawn with a mask so it follows the theme */
+  .court-lines { position: relative; isolation: isolate; }
+  .court-lines::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--border); opacity: 0.55;
+    -webkit-mask: var(--court) right -28px bottom -34px / 440px auto no-repeat; mask: var(--court) right -28px bottom -34px / 440px auto no-repeat;
+  }
+
+  /* filter chips read like the labels on a scoresheet */
+  button.rounded-full.border { font-family: var(--f-label), ui-monospace, monospace; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.74rem; }
+  button.rounded-full.border[aria-pressed="true"] { box-shadow: 0 0 0 1px var(--accent) inset; }
+
+  /* a score bug: slanted tab, thin accent edge */
+  .bug { clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%); }
+  .bug-live { background: var(--live); color: #fff; }
+
+  /* quarter pips: filled for periods played */
+  .pip { height: 4px; border-radius: 2px; background: var(--border); }
+  .pip[data-on="true"] { background: var(--accent); }
+  .pip[data-live="true"] { background: var(--live); animation: pulse-bar 1.4s ease-in-out infinite; }
+
+  .reveal { animation: rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+  .tick-scroll { scrollbar-width: none; }
+  .tick-scroll::-webkit-scrollbar { display: none; }
+}
+
+:root {
+  /* one half court: baseline at the top, key, free-throw circle, three-point arc (white strokes: used only as a mask) */
+  --court: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 470' fill='none' stroke='white' stroke-width='3'><rect x='4' y='4' width='492' height='462'/><rect x='170' y='4' width='160' height='190'/><circle cx='250' cy='194' r='60'/><path d='M60 4 V140 A190 190 0 0 0 440 140 V4'/><path d='M215 40 H285'/><circle cx='250' cy='52' r='9'/><path d='M190 4 V0 M310 4 V0'/></svg>");
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pulse-dot { 0% { box-shadow: 0 0 0 0 rgb(255 85 71 / 0.55); } 70%, 100% { box-shadow: 0 0 0 7px rgb(255 85 71 / 0); } }
+@keyframes pulse-bar { 50% { opacity: 0.45; } }
+.play-enter { animation: slide-in 200ms ease-out; }
+.live-dot { animation: pulse-dot 1.6s ease-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .play-enter, .live-dot, .reveal, .pip[data-live="true"] { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* Section headings (the small h2/h3 that title a panel): larger signage type with a skewed accent tick. Unlayered on purpose: it must win over the text-sm the markup still carries. */
+h2.text-sm, h3.text-sm { font-size: 1.2rem; letter-spacing: 0.04em; display: flex; align-items: center; gap: 0.5rem; }
+h2.text-sm::before, h3.text-sm::before { content: ""; flex: none; width: 0.28rem; height: 0.95em; background: var(--accent); transform: skewX(-14deg); }
+
+
+/* ---------------------------------------------------------------- motion */
+/* a whole number the browser can interpolate: set --n and the figure rolls to it */
+@property --n { syntax: "<integer>"; initial-value: 0; inherits: false; }
+@keyframes count-up { from { --n: 0; } }
+.count { --n: 0; counter-reset: n var(--n); transition: --n 800ms cubic-bezier(0.2, 0.7, 0.2, 1); animation: count-up 1000ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.count::after { content: counter(n); }
+.flash-ring { position: absolute; inset: -0.08em -0.18em; border-radius: 6px; pointer-events: none; animation: flash 1.2s ease-out forwards; }
+@keyframes flash {
+  0% { box-shadow: 0 0 0 0 var(--accent), inset 0 0 0 99px color-mix(in srgb, var(--accent) 38%, transparent); }
+  100% { box-shadow: 0 0 0 12px transparent, inset 0 0 0 99px transparent; }
+}
+
+/* the one marker that slides between tabs */
+.tab-marker { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--accent); pointer-events: none; opacity: 0;
+  transition: transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1), width 380ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms; }
+
+/* score crawl */
+.ticker-track { animation: crawl var(--dur, 60s) linear infinite; }
+.ticker:hover .ticker-track, .ticker:focus-within .ticker-track { animation-play-state: paused; }
+@keyframes crawl { to { transform: translateX(-50%); } }
+.ticker-mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
+
+.page-enter { animation: page-in 220ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } }
+.pop { animation: pop 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: top left; }
+@keyframes pop { from { opacity: 0; transform: translateY(-4px) scale(0.97); } }
+
+/* light that follows the pointer across a card */
+.spot { position: relative; }
+.spot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity 250ms;
+  background: radial-gradient(130px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--t1, var(--accent)) 9%, transparent), transparent 100%); }
+.spot:hover::after { opacity: 1; }
+
+/* loading placeholders: a light sweeping across, not a blinking block */
+@layer components {
+  .skeleton { position: relative; overflow: hidden; background-color: var(--surface); }
+  .skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); animation: shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(100deg, transparent 15%, var(--card-hi) 50%, transparent 85%); }
+}
+@keyframes shimmer { to { transform: translateX(100%); } }
+
+/* sections that rise as they scroll into view, where the browser can do it without JavaScript */
+@supports (animation-timeline: view()) {
+  .reveal-scroll { animation: rise linear both; animation-timeline: view(); animation-range: entry 0% entry 55%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .count, .page-enter, .pop, .flash-ring, .skeleton::after, .reveal-scroll { animation: none; }
+  .count { transition: none; }
+  .tab-marker { transition: none; }
+  .ticker-track { animation: none; }
+  .ticker-track li[aria-hidden="true"] { display: none; }
+  .ticker-mask { overflow-x: auto; }
+}
+
+/* game card: both teams' colours along the top edge, a glow behind each logo, a progress line that grows in */
+.game-card::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; z-index: 1;
+  background: linear-gradient(90deg, var(--a1) 0 50%, var(--h1) 50% 100%); }
+.game-card::after { z-index: 0; }
+.logo-glow::before { content: ""; position: absolute; inset: -4px; border-radius: 999px; z-index: -1; opacity: 0.55; filter: blur(9px);
+  background: radial-gradient(circle, var(--t1), transparent 70%); transition: opacity 300ms, transform 300ms; }
+.game-card:hover .logo-glow::before { opacity: 0.95; transform: scale(1.25); }
+.game-progress { background: linear-gradient(90deg, var(--a1), var(--accent) 55%, var(--h1)); transform-origin: left; animation: grow 1100ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes grow { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .game-progress { animation: none; } .logo-glow::before { transition: none; } }
+
+/* game hero: each team's colour washes in from its own side */
+.hero-wash { position: absolute; inset: 0; z-index: -1; pointer-events: none; transition: opacity 300ms;
+  background:
+    linear-gradient(104deg, color-mix(in srgb, var(--a1, transparent) 34%, transparent), transparent 46%),
+    linear-gradient(256deg, color-mix(in srgb, var(--h1, transparent) 34%, transparent), transparent 46%),
+    linear-gradient(180deg, transparent 55%, var(--bg)); }
+.game-hero[data-compact="true"] .hero-wash { opacity: 0.55; }
+
+/* chart lines draw themselves on, and shots pop onto the court in sequence */
+.draw-line { stroke-dasharray: 1; stroke-dashoffset: 0; animation: draw 1400ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes draw { from { stroke-dashoffset: 1; } }
+.shot-in { transform-box: fill-box; transform-origin: center; animation: shot-pop 420ms cubic-bezier(0.3, 1.5, 0.5, 1) both; animation-delay: calc(min(var(--i, 0), 90) * 11ms); }
+@keyframes shot-pop { from { opacity: 0; transform: scale(0); } }
+.play-flash { animation: play-flash 1600ms ease-out; }
+@keyframes play-flash { from { background-color: color-mix(in srgb, var(--accent) 42%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .draw-line, .shot-in, .play-flash { animation: none; } }

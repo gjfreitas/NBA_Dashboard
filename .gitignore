@@ -1,0 +1,20 @@
+# data and secrets never go in the repository
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# tooling
+node_modules/
+.next/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.claude/settings.local.json
+
+build/
+fixtures/odds/
+.claude/

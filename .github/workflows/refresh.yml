@@ -1,0 +1,35 @@
+name: Refresh data
+
+# Every 15 minutes: pull the newest database snapshot from R2, refresh injuries, lineups and odds, push it back.
+# The stats.nba.com ingest is not here: that host refuses GitHub's addresses, so it runs on your computer (`python -m nbadash.cloud desktop`).
+# GitHub starts scheduled runs late under load (often 5 to 15 minutes) and switches them off after 60 days without a push to the repo:
+# if the site goes stale, check the Actions tab and re-enable the workflow.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh-data   # two runs must never write at once
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - run: pip install "./backend[cloud]"
+      - run: python -m nbadash.cloud refresh
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}   # one key, or several separated by commas
+          NBA_DB: ${{ runner.temp }}/nba.db

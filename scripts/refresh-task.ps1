@@ -8,16 +8,20 @@
   database doesn't know about yet, or once a day as a catch-up. No console window opens (pythonw), output goes to
   backend\data\refresh.log.
 
-  .\scripts\refresh-task.ps1 install [-Minutes 30]
+  .\scripts\refresh-task.ps1 install [-Minutes 30] [-Cloud]
   .\scripts\refresh-task.ps1 status
   .\scripts\refresh-task.ps1 run          # trigger a pass right now
   .\scripts\refresh-task.ps1 uninstall
+
+  -Cloud: the hosted setup (see DEPLOY.md). Each run first downloads the newest snapshot from R2, then does the full refresh, then uploads the result,
+  so the website sees the stats this computer fetches. Needs the R2_* environment variables and `pip install -e backend[cloud]`.
 
   If scripts are blocked:  powershell -ExecutionPolicy Bypass -File .\scripts\refresh-task.ps1 status
 #>
 param(
     [Parameter(Position = 0)][ValidateSet('install', 'uninstall', 'status', 'run')][string]$Action = 'status',
     [int]$Minutes = 30,
+    [switch]$Cloud,
     [string]$PythonPath = ''   # override if the right interpreter isn't found automatically
 )
 
@@ -59,12 +63,12 @@ switch ($Action) {
     'install' {
         $python = Find-Python
         & $python -c "import nba_api, curl_cffi, fastapi" 2>$null
-        if ($LASTEXITCODE -ne 0) { throw "$python is missing packages; run: $python -m pip install -e `"$Backend[ingest]`"" }
+        if ($LASTEXITCODE -ne 0) { throw "$python is missing packages; run: $python -m pip install -e `"$Backend[ingest,cloud]`"" }
         $pythonw = Join-Path (Split-Path $python) 'pythonw.exe'
         if (-not (Test-Path $pythonw)) { throw "pythonw.exe not found next to $python" }
         New-Item -ItemType Directory -Force -Path (Split-Path $LogFile) | Out-Null
 
-        $act = New-ScheduledTaskAction -Execute $pythonw -Argument '-m nbadash.ingest refresh --log-file data\refresh.log' -WorkingDirectory $Backend
+        $act = New-ScheduledTaskAction -Execute $pythonw -Argument $(if ($Cloud) { '-m nbadash.cloud desktop' } else { '-m nbadash.ingest refresh --log-file data\refresh.log' }) -WorkingDirectory $Backend
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $Minutes) -RepetitionDuration (New-TimeSpan -Days 3650)
         $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
             -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries

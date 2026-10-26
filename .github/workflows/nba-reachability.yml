@@ -1,0 +1,18 @@
+name: NBA source reachability
+
+# A one-off check, run by hand from the Actions tab ("Run workflow"): can a GitHub-hosted runner reach the NBA, ESPN and odds sources?
+# It changes nothing and needs no secrets. Run it a few times at different hours: some blocks come and go.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install curl_cffi nba_api
+      - run: python scripts/check_nba_reachability.py
